@@ -93,6 +93,10 @@ func (u *UIManager) Init() tea.Cmd {
 }
 
 // Update handles all messages in the linear flow
+// think of this as the callback from teas render loop, it constantly
+// polls our "plugin" to see if there is any new data to process
+// or any new elements to render based on the state machine
+// managed by our UIManager
 func (u *UIManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
