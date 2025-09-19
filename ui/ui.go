@@ -150,9 +150,7 @@ func (u *UIManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case doneMsg:
 		u.success = bool(msg)
 		u.currentStep = StepDone
-		return u, tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
-			return quitMsg{}
-		})
+		return u, func() tea.Msg { return quitMsg{} }
 
 	case quitMsg:
 		return u, tea.Quit
@@ -319,6 +317,46 @@ func (u *UIManager) View() string {
 		Padding(0, 1).
 		Width(minInt(vw-4, 80))
 	return box.Render("Unknown state")
+}
+
+// FinalOutput returns the final line that should be printed after the TUI exits
+// to preserve the success or error message on screen.
+func (u *UIManager) FinalOutput() string {
+	vw := u.width
+	if vw == 0 {
+		vw = 80
+	}
+
+	if u.success {
+		ecrStatus := "no"
+		ecrColor := errorStyle
+		if u.sessionResult.ECRAuth {
+			ecrStatus = "yes"
+			ecrColor = infoStyle
+		}
+
+		successLine := successStyle.Render("✓ Success")
+		content := fmt.Sprintf("%s - account [%s] - ecr [%s]",
+			successLine,
+			infoStyle.Render(u.profile),
+			ecrColor.Render(ecrStatus))
+		box := lipgloss.NewStyle().
+			Padding(0, 1).
+			Width(minInt(vw-4, 80))
+		return fmt.Sprint(box.Render(content))
+	}
+
+	if u.err != nil {
+		content := fmt.Sprintf("%s %s",
+			errorStyle.Render("✗"),
+			errorStyle.Render(u.err.Error()))
+		box := lipgloss.NewStyle().
+			Padding(0, 1).
+			Width(minInt(vw-4, 80))
+		return fmt.Sprint(box.Render(content))
+	}
+
+	return ""
 }
 
 // initCurrentStep initializes the current step

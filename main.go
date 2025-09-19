@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -44,5 +45,13 @@ func main() {
 	p := tea.NewProgram(uiManager)
 	if _, err := p.Run(); err != nil {
 		log.Fatal("Error AWS login", "error", err)
+	}
+
+	// After program exits, print the final output so it persists
+	if out := uiManager.FinalOutput(); out != "" {
+		// Ensure we end with a newline for shell friendliness
+		// Im only doing this until I read the bubb;etea docs
+		// properly and can figur out why it wont print my final msg
+		fmt.Println(out)
 	}
 }

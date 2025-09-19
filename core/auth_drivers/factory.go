@@ -2,7 +2,6 @@ package auth_drivers
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/alexmk92/aws-login/core/types"
@@ -39,22 +38,6 @@ func ParseAuthDriver(s string) (AuthDriverName, error) {
 	default:
 		return AuthDriverManual, fmt.Errorf("invalid auth driver '%s', valid options are: manual, 1password", s)
 	}
-}
-
-// GetAuthDriverFromEnv gets the auth driver from environment variable
-func GetAuthDriverFromEnv() (AuthDriverName, error) {
-	driverStr := os.Getenv("AWS_LOGIN_AUTH_DRIVER")
-	if driverStr == "" {
-		// Default to manual if not set
-		return AuthDriverManual, nil
-	}
-
-	driver, err := ParseAuthDriver(driverStr)
-	if err != nil {
-		return AuthDriverManual, fmt.Errorf("AWS_LOGIN_AUTH_DRIVER environment variable error: %w", err)
-	}
-
-	return driver, nil
 }
 
 // GetDriver returns the appropriate auth driver based on the driver type
