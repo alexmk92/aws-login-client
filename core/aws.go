@@ -14,6 +14,7 @@ import (
 // AWSService handles all AWS-related operations
 type AWSService struct {
 	credentialReader *CredentialReader
+	attemptECRLogin  bool
 }
 
 // Create a new AWS service instance, if we wanted this to be a singleton
@@ -42,7 +43,7 @@ type AWSService struct {
 //
 //		return awsServiceInstance
 //	}
-func NewAWSService() *AWSService {
+func NewAWSService(attemptECRLogin bool) *AWSService {
 	credentialReader := NewCredentialReader()
 	if err := credentialReader.LoadCredentialsFile(); err != nil {
 		// This is a fatal error, we need to load the credentials file, it will send an os.Exit(1) signal
@@ -51,6 +52,7 @@ func NewAWSService() *AWSService {
 
 	return &AWSService{
 		credentialReader: credentialReader,
+		attemptECRLogin:  attemptECRLogin,
 	}
 }
 
@@ -188,6 +190,15 @@ func (s *AWSService) GetSessionToken(profile, mfaCode string) (bool, error) {
 
 // LoginToECR performs Docker login to ECR using temporary credentials
 func (s *AWSService) LoginToECR() error {
+	if !s.attemptECRLogin {
+		return fmt.Errorf("attempt to login to ECR is disabled")
+	}
+
+	credentials, err := s.GetCredentials(os.Getenv("AWS_PROFILE"))
+	if err != nil {
+		return fmt.Errorf("failed to get credentials: %w", err)
+	}
+
 	// Get ECR login password using temporary credentials
 	passwordCmd := exec.Command("aws", "ecr", "get-login-password", "--region", "eu-west-2")
 	password, err := passwordCmd.Output()
@@ -199,7 +210,7 @@ func (s *AWSService) LoginToECR() error {
 	dockerCmd := exec.Command("docker", "login",
 		"--username", "AWS",
 		"--password-stdin",
-		os.Getenv("ECR_REGISTRY"))
+		fmt.Sprintf("%s.dkr.ecr.eu-west-2.amazonaws.com", credentials.AccountID))
 	dockerCmd.Stdin = strings.NewReader(string(password))
 
 	if err := dockerCmd.Run(); err != nil {

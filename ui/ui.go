@@ -55,6 +55,7 @@ const (
 	StepMFAInput
 	StepProcessing
 	StepDone
+	StepQuit
 )
 
 // Messages for the flow
@@ -65,23 +66,15 @@ type stepCompleteMsg struct {
 
 type errorMsg error
 type doneMsg bool
+type quitMsg struct{}
 
-func Start(profile string, awsService *core.AWSService, authDriverName auth_drivers.AuthDriverName) *UIManager {
+func Start(awsService *core.AWSService, authDriverName auth_drivers.AuthDriverName) *UIManager {
 	ui := &UIManager{
 		awsService:     awsService,
-		profile:        profile,
 		authDriverName: authDriverName,
 		sessionResult:  &coreTypes.AuthFlowResult{},
 		mfaInput:       NewMFAInput(),
-	}
-
-	// Determine starting step based on provided parameters
-	if profile == "" {
-		ui.currentStep = StepProfileSelection
-	} else if authDriverName == auth_drivers.AuthDriverUnknown {
-		ui.currentStep = StepDriverSelection
-	} else {
-		ui.currentStep = StepRoleSelection
+		currentStep:    StepProfileSelection,
 	}
 
 	return ui
@@ -138,7 +131,9 @@ func (u *UIManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			return u, tea.Quit
+			return u, func() tea.Msg {
+				return quitMsg{}
+			}
 		}
 		return u.handleCurrentStep(msg)
 
@@ -148,14 +143,24 @@ func (u *UIManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errorMsg:
 		u.err = msg
 		u.currentStep = StepDone
-		return u, tea.Quit
+		return u, func() tea.Msg {
+			return quitMsg{}
+		}
 
 	case doneMsg:
 		u.success = bool(msg)
 		u.currentStep = StepDone
 		return u, tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
-			return tea.Quit()
+			return quitMsg{}
 		})
+
+	case quitMsg:
+		return u, tea.Quit
+
+	case tea.QuitMsg:
+		// When we receive the quit message, ensure we're in the quit state
+		u.currentStep = StepQuit
+		return u, nil
 
 	default:
 		return u, nil
@@ -276,6 +281,38 @@ func (u *UIManager) View() string {
 				Width(minInt(vw-4, 80))
 			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
 		}
+
+	case StepQuit:
+		// Return the last rendered state to preserve the display
+		if u.success {
+			// Format ECR status
+			ecrStatus := "no"
+			ecrColor := errorStyle
+			if u.sessionResult.ECRAuth {
+				ecrStatus = "yes"
+				ecrColor = infoStyle
+			}
+
+			successLine := successStyle.Render("✓ Success")
+			content := fmt.Sprintf("%s - account [%s] - ecr [%s]",
+				successLine,
+				infoStyle.Render(u.profile),
+				ecrColor.Render(ecrStatus))
+			box := lipgloss.NewStyle().
+				Padding(0, 1).
+				Width(minInt(vw-4, 80))
+			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
+		} else if u.err != nil {
+			content := fmt.Sprintf("%s %s",
+				errorStyle.Render("✗"),
+				errorStyle.Render(u.err.Error()))
+			box := lipgloss.NewStyle().
+				Padding(0, 1).
+				Width(minInt(vw-4, 80))
+			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
+		}
+		// Fallback to empty string if no final state
+		return ""
 	}
 
 	box := lipgloss.NewStyle().
@@ -483,7 +520,7 @@ func (u *UIManager) processAuthentication() tea.Cmd {
 		// Attempt ECR login
 		if err := u.awsService.LoginToECR(); err != nil {
 			u.sessionResult.ECRAuth = false
-			// ECR login failure is not critical - continue with success
+			// not critical, continue with success
 		} else {
 			u.sessionResult.ECRAuth = true
 		}

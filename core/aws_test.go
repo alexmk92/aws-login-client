@@ -1,7 +1,6 @@
 package core
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
@@ -245,26 +244,5 @@ func TestAWSService_ValidateMFACode(t *testing.T) {
 				t.Errorf("ValidateMFACode(%s) = %v, expected %v", tt.code, result, tt.expected)
 			}
 		})
-	}
-}
-
-func TestNewAWSService(t *testing.T) {
-	// Set ECR_REGISTRY to avoid panic during testing
-	os.Setenv("ECR_REGISTRY", "test-registry.dkr.ecr.eu-west-2.amazonaws.com")
-	defer os.Unsetenv("ECR_REGISTRY")
-
-	// This test verifies that we can create an AWS service with a credential reader
-	// We avoid calling NewAWSService() directly to prevent file loading issues
-	credentialReader := NewCredentialReader()
-	awsService := &AWSService{
-		credentialReader: credentialReader,
-	}
-
-	if awsService == nil {
-		t.Error("AWS service creation returned nil")
-	}
-
-	if awsService.credentialReader == nil {
-		t.Error("AWS service created with nil credential reader")
 	}
 }

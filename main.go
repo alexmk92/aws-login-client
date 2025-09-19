@@ -31,26 +31,15 @@ func main() {
 		}
 	}
 
-	// Arg1 is the command name, arg 2 is our profile name
-	// when we pass this to the UI layer, it will be
-	// initialised to an empty string if no profile is provided
-	// this is because Go will default to the most 'sane' value
-	// for the specified type, unless it is a pointer, in
-	// which case it will be nil (careful as nils can cause
-	// nil pointer dereference exceptions if not handled properly)
-	var profile string
-	if len(os.Args) >= 2 {
-		profile = os.Args[1]
-		// os.Setenv is only valid for the current process context, it is NOT setting
-		// host environment variables
-		os.Setenv("AWS_PROFILE", profile)
-	}
+	// Arg1 is the command name, arg 2 is our flag to determine
+	// if we should attempt to login to ECR or not
+	attemptECRLogin := len(os.Args) >= 2
 
 	// Create the core AWS service to be consumed by the UI manager
-	awsService := core.NewAWSService()
+	awsService := core.NewAWSService(attemptECRLogin)
 
 	// Create the UI manager for tea to consume: https://github.com/charmbracelet/bubbletea
-	uiManager := ui.Start(profile, awsService, authDriverName)
+	uiManager := ui.Start(awsService, authDriverName)
 	// Now, delegate tea to utilize our uiManager
 	p := tea.NewProgram(uiManager)
 	if _, err := p.Run(); err != nil {

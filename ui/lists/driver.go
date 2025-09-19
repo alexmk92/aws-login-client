@@ -81,7 +81,6 @@ func (m DriverListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if i, ok := m.list.SelectedItem().(DriverItem); ok {
 				m.choice = i.driver
 				m.selected = true
-				// fmt.Printf("DEBUG: Driver model selected: %v\n", m.choice)
 				return m, nil
 			}
 		}

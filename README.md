@@ -11,15 +11,15 @@ Secure AWS login with MFA support and 1Password integration.
 
 ## Setup
 
-1. **Build**: `go mod tidy && go build`
+1. **Build**: `go mod tidy && go build -o aws_login`
+2. **Move**: `mv aws_login /usr/local/bin` (or add to your path)
+3. **Exec**: `chmod +x /usr/local/bin/aws_login`
+4. **Add to `~/.zshrc`**:
 
-2. **Add to `~/.zshrc`**:
 ```bash
 aws-login() {
-    # If you wish to be auto logged into ECR, set this variable!
-    # export ECR_REGISTRY=ACCOUNT_ID.dkr.ecr.eu-west-2.amazonaws.com
+    aws_login $1
 
-    go run main.go $1
     if [ -f "/tmp/aws-session.json" ]; then
         export AWS_ACCESS_KEY_ID=$(jq -r '.AccessKeyId' /tmp/aws-session.json)
         export AWS_SECRET_ACCESS_KEY=$(jq -r '.SecretAccessKey' /tmp/aws-session.json)
@@ -47,7 +47,23 @@ vault_key = AWS MFA profile-name
 ## Usage
 
 ```bash
-aws-login profile-name
+aws-login attempt-ecr-login
+```
+
+## Development
+Use an alternate script
+
+```bash
+aws-login-dev() {
+    go run /path/to/main.go $1
+
+    if [ -f "/tmp/aws-session.json" ]; then
+        export AWS_ACCESS_KEY_ID=$(jq -r '.AccessKeyId' /tmp/aws-session.json)
+        export AWS_SECRET_ACCESS_KEY=$(jq -r '.SecretAccessKey' /tmp/aws-session.json)
+        export AWS_SESSION_TOKEN=$(jq -r '.SessionToken' /tmp/aws-session.json)
+        rm /tmp/aws-session.json
+    fi
+}
 ```
 
 ## Requirements
