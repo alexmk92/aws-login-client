@@ -184,7 +184,7 @@ func (u *UIManager) View() string {
 		}
 		box := lipgloss.NewStyle().
 			Padding(0, 1).
-			Width(minInt(vw-4, 80))
+			Width(min(vw-4, 80))
 		return box.Render(body)
 
 	case StepDriverSelection:
@@ -196,7 +196,7 @@ func (u *UIManager) View() string {
 		}
 		box := lipgloss.NewStyle().
 			Padding(0, 1).
-			Width(minInt(vw-4, 80))
+			Width(min(vw-4, 80))
 		return box.Render(body)
 
 	case StepRoleSelection:
@@ -208,7 +208,7 @@ func (u *UIManager) View() string {
 		}
 		box := lipgloss.NewStyle().
 			Padding(0, 1).
-			Width(minInt(vw-4, 80))
+			Width(min(vw-4, 80))
 		return box.Render(body)
 
 	case StepMFAInput:
@@ -221,7 +221,7 @@ func (u *UIManager) View() string {
 				pulseStyle.Render("⏳ Please wait"))
 			box := lipgloss.NewStyle().
 				Padding(0, 1).
-				Width(minInt(vw-4, 80))
+				Width(min(vw-4, 80))
 			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
 		} else {
 			// Show manual MFA input
@@ -233,7 +233,7 @@ func (u *UIManager) View() string {
 				errorStyle.Render(u.step))
 			box := lipgloss.NewStyle().
 				Padding(0, 1).
-				Width(minInt(vw-4, 80))
+				Width(min(vw-4, 80))
 			return box.Render(content)
 		}
 
@@ -247,7 +247,7 @@ func (u *UIManager) View() string {
 			infoStyle.Render(stepMessage))
 		box := lipgloss.NewStyle().
 			Padding(0, 1).
-			Width(minInt(vw-4, 80))
+			Width(min(vw-4, 80))
 		return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
 
 	case StepDone:
@@ -257,7 +257,7 @@ func (u *UIManager) View() string {
 				errorStyle.Render(u.err.Error()))
 			box := lipgloss.NewStyle().
 				Padding(0, 1).
-				Width(minInt(vw-4, 80))
+				Width(min(vw-4, 80))
 			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
 		}
 		if u.success {
@@ -276,7 +276,7 @@ func (u *UIManager) View() string {
 				ecrColor.Render(ecrStatus))
 			box := lipgloss.NewStyle().
 				Padding(0, 1).
-				Width(minInt(vw-4, 80))
+				Width(min(vw-4, 80))
 			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
 		}
 
@@ -298,7 +298,7 @@ func (u *UIManager) View() string {
 				ecrColor.Render(ecrStatus))
 			box := lipgloss.NewStyle().
 				Padding(0, 1).
-				Width(minInt(vw-4, 80))
+				Width(min(vw-4, 80))
 			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
 		} else if u.err != nil {
 			content := fmt.Sprintf("%s %s",
@@ -306,7 +306,7 @@ func (u *UIManager) View() string {
 				errorStyle.Render(u.err.Error()))
 			box := lipgloss.NewStyle().
 				Padding(0, 1).
-				Width(minInt(vw-4, 80))
+				Width(min(vw-4, 80))
 			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
 		}
 		// Fallback to empty string if no final state
@@ -315,7 +315,7 @@ func (u *UIManager) View() string {
 
 	box := lipgloss.NewStyle().
 		Padding(0, 1).
-		Width(minInt(vw-4, 80))
+		Width(min(vw-4, 80))
 	return box.Render("Unknown state")
 }
 
@@ -342,7 +342,7 @@ func (u *UIManager) FinalOutput() string {
 			ecrColor.Render(ecrStatus))
 		box := lipgloss.NewStyle().
 			Padding(0, 1).
-			Width(minInt(vw-4, 80))
+			Width(min(vw-4, 80))
 		return fmt.Sprint(box.Render(content))
 	}
 
@@ -352,7 +352,7 @@ func (u *UIManager) FinalOutput() string {
 			errorStyle.Render(u.err.Error()))
 		box := lipgloss.NewStyle().
 			Padding(0, 1).
-			Width(minInt(vw-4, 80))
+			Width(min(vw-4, 80))
 		return fmt.Sprint(box.Render(content))
 	}
 
@@ -565,12 +565,4 @@ func (u *UIManager) processAuthentication() tea.Cmd {
 
 		return doneMsg(true)
 	}
-}
-
-// minInt returns the smaller of two ints.
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
