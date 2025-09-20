@@ -57,12 +57,20 @@ func NewAWSService(attemptECRLogin bool) *AWSService {
 }
 
 // GetCredentials returns the credentials for a specific profile
-// we need to return a pointer to the credential so that we can modify it if needed
-// Notice we're returning a nil pointer if the credential is not found, in Go the
-// programmeer should always be handling the error case gracefully, its ok to
-// proceed with a nil if you're acknolwedging that the credential is not found
+// notice that we're returning a nil pointer if the credential is not found
+// this is because we want to allow the caller to handle the error case gracefully
 // if you don't handle the error case and simply return the nil, it would be easy
 // to create a panic (crash) due to a nil pointer dereference.
+//
+// The issue with this approach is we're returning a pointer to the credential,
+// which means we're passing around references to the credential, and therefore
+// any modifications to the credential will be reflected in the credential readers
+// internal state.
+//
+// We could choose to return a copy instead, this would result in sizeof(types.StaticCredential) bytes
+// of memory being allocated for each call to GetCredentials, which is probably fine in the
+// case of our application.  If you return a value instead of a * you cannot return nil
+// instead you'd need to return a zero value for the type, such as types.StaticCredential{}
 func (s *AWSService) GetCredentials(profile string) (*types.StaticCredential, error) {
 	if s.credentialReader == nil {
 		return nil, fmt.Errorf("credential reader not initialized")
@@ -74,19 +82,6 @@ func (s *AWSService) GetCredentials(profile string) (*types.StaticCredential, er
 	}
 
 	return &credential, nil
-}
-
-func (s *AWSService) GetAWSCredentials(profile string) (string, string, error) {
-	credential, err := s.GetCredentials(profile)
-	if err != nil {
-		return "", "", err
-	}
-
-	if credential.AccessKey == "" || credential.AccessSecret == "" {
-		return "", "", fmt.Errorf("AWS credentials not found for profile '%s'", profile)
-	}
-
-	return credential.AccessKey, credential.AccessSecret, nil
 }
 
 func (s *AWSService) GetMFASerial(profile string) (string, error) {
@@ -176,6 +171,7 @@ func (s *AWSService) GetSessionToken(profile, mfaCode string) (bool, error) {
 	// Debug print removed to avoid interfering with Bubble Tea rendering
 
 	output, err := cmd.Output()
+
 	if err != nil {
 		return false, fmt.Errorf("failed to get AWS session token: %w", err)
 	}

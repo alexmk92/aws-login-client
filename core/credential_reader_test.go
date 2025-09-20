@@ -108,13 +108,6 @@ aws_secret_access_key = je7MtGbClwBF/2Zp9Utk/h3yCo8nvbEXAMPLEKEY`,
 			if len(profiles) != len(tt.expectedProfiles) {
 				t.Errorf("Expected %d profiles, got %d", len(tt.expectedProfiles), len(profiles))
 			}
-
-			// Check each expected profile exists
-			for _, expectedProfile := range tt.expectedProfiles {
-				if !cr.HasProfile(expectedProfile) {
-					t.Errorf("Expected profile '%s' not found", expectedProfile)
-				}
-			}
 		})
 	}
 }
@@ -217,45 +210,6 @@ vault_key = int-mfa-key`
 				if cred.VaultKey != tt.expectedCred.VaultKey {
 					t.Errorf("Expected VaultKey=%s, got %s", tt.expectedCred.VaultKey, cred.VaultKey)
 				}
-			}
-		})
-	}
-}
-
-func TestCredentialReader_HasProfile(t *testing.T) {
-	cr := NewCredentialReader()
-
-	credentialsContent := `[default]
-aws_access_key_id = AKIAIOSFODNN7EXAMPLE
-aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-
-[int]
-aws_access_key_id = AKIAI44QH8DHBEXAMPLE
-aws_secret_access_key = je7MtGbClwBF/2Zp9Utk/h3yCo8nvbEXAMPLEKEY`
-
-	// Clear any existing credentials from previous tests
-	cr.clearCredentials()
-	err := cr.loadCredentialsFromContent(credentialsContent)
-	if err != nil {
-		t.Fatalf("Failed to load test credentials: %v", err)
-	}
-
-	tests := []struct {
-		profile  string
-		expected bool
-	}{
-		{"default", true},
-		{"int", true},
-		{"prd", false},
-		{"", false},
-		{"nonexistent", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.profile, func(t *testing.T) {
-			result := cr.HasProfile(tt.profile)
-			if result != tt.expected {
-				t.Errorf("HasProfile(%s) = %v, expected %v", tt.profile, result, tt.expected)
 			}
 		})
 	}

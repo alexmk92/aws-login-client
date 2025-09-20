@@ -34,19 +34,6 @@ func (d *ManualDriver) Name() string {
 	return "manual"
 }
 
-// ValidateMFACode checks if the MFA code is 6 digits
-func (d *ManualDriver) ValidateMFACode(code string) bool {
-	if len(code) != 6 {
-		return false
-	}
-	for _, char := range code {
-		if char < '0' || char > '9' {
-			return false
-		}
-	}
-	return true
-}
-
 func (d *ManualDriver) YieldsMFACode() bool {
 	return false
 }

@@ -145,12 +145,6 @@ func (cr *CredentialReader) GetCredential(profile string) (types.StaticCredentia
 	return credential, exists
 }
 
-// HasProfile checks if a profile exists in the credentials
-func (cr *CredentialReader) HasProfile(profile string) bool {
-	_, exists := cr.credentials[profile]
-	return exists
-}
-
 // GetAssumableRoles returns the list of roles that can be assumed for a profile
 // This now returns all profiles that have an assumable_role_id (except the current profile)
 func (cr *CredentialReader) GetAssumableRoles(profile string) []string {
