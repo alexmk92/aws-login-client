@@ -18,9 +18,10 @@ Secure AWS login with MFA support and 1Password integration.
 
 ```bash
 aws-login() {
-    aws_login $1
+    awslogin $1
 
     if [ -f "/tmp/aws-session.json" ]; then
+        export AWS_PROFILE=$(jq -r '.ProfileName' /tmp/aws-session.json)
         export AWS_ACCESS_KEY_ID=$(jq -r '.AccessKeyId' /tmp/aws-session.json)
         export AWS_SECRET_ACCESS_KEY=$(jq -r '.SecretAccessKey' /tmp/aws-session.json)
         export AWS_SESSION_TOKEN=$(jq -r '.SessionToken' /tmp/aws-session.json)
@@ -77,6 +78,7 @@ aws-login-dev() {
     go run /path/to/main.go $1
 
     if [ -f "/tmp/aws-session.json" ]; then
+        export AWS_PROFILE=$(jq -r '.ProfileName' /tmp/aws-session.json)
         export AWS_ACCESS_KEY_ID=$(jq -r '.AccessKeyId' /tmp/aws-session.json)
         export AWS_SECRET_ACCESS_KEY=$(jq -r '.SecretAccessKey' /tmp/aws-session.json)
         export AWS_SESSION_TOKEN=$(jq -r '.SessionToken' /tmp/aws-session.json)
