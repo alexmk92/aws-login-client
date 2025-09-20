@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -13,6 +14,8 @@ import (
 	coreTypes "github.com/alexmk92/aws-login/core/types"
 	"github.com/alexmk92/aws-login/ui/lists"
 )
+
+const MAX_UI_WIDTH = 80
 
 // UIManager represents the main UI state machine with a simplified linear flow
 type UIManager struct {
@@ -33,6 +36,7 @@ type UIManager struct {
 	driverModel  *lists.DriverListModel
 	roleModel    *lists.RoleListModel
 	mfaInput     textinput.Model
+	spinner      spinner.Model
 
 	// Final result
 	sessionResult *coreTypes.AuthFlowResult
@@ -69,11 +73,16 @@ type doneMsg bool
 type quitMsg struct{}
 
 func Start(awsService *core.AWSService, authDriverName auth_drivers.AuthDriverName) *UIManager {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	ui := &UIManager{
 		awsService:     awsService,
 		authDriverName: authDriverName,
 		sessionResult:  &coreTypes.AuthFlowResult{},
 		mfaInput:       NewMFAInput(),
+		spinner:        s,
 		currentStep:    StepProfileSelection,
 	}
 
@@ -137,6 +146,11 @@ func (u *UIManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return u.handleCurrentStep(msg)
 
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		u.spinner, cmd = u.spinner.Update(msg)
+		return u, cmd
+
 	case stepCompleteMsg:
 		return u.handleStepComplete(msg)
 
@@ -172,7 +186,6 @@ func (u *UIManager) View() string {
 	if vw == 0 {
 		vw = 80
 	}
-	header := titleStyle.Render("JJ AWS Login")
 
 	switch u.currentStep {
 	case StepProfileSelection:
@@ -182,10 +195,7 @@ func (u *UIManager) View() string {
 		} else {
 			body = u.profileModel.View()
 		}
-		box := lipgloss.NewStyle().
-			Padding(0, 1).
-			Width(min(vw-4, 80))
-		return box.Render(body)
+		return body
 
 	case StepDriverSelection:
 		var body string
@@ -194,10 +204,7 @@ func (u *UIManager) View() string {
 		} else {
 			body = u.driverModel.View()
 		}
-		box := lipgloss.NewStyle().
-			Padding(0, 1).
-			Width(min(vw-4, 80))
-		return box.Render(body)
+		return body
 
 	case StepRoleSelection:
 		var body string
@@ -206,10 +213,7 @@ func (u *UIManager) View() string {
 		} else {
 			body = u.roleModel.View()
 		}
-		box := lipgloss.NewStyle().
-			Padding(0, 1).
-			Width(min(vw-4, 80))
-		return box.Render(body)
+		return body
 
 	case StepMFAInput:
 		// Check if we're using automatic MFA or manual input
@@ -220,19 +224,19 @@ func (u *UIManager) View() string {
 				infoStyle.Render(fmt.Sprintf("Fetching your MFA code from %s...", u.authDriverName.String())),
 				pulseStyle.Render("⏳ Please wait"))
 			box := lipgloss.NewStyle().
-				Padding(0, 1).
+				Padding(1, 2).
 				Width(min(vw-4, 80))
-			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
+			return box.Render(content)
 		} else {
 			// Show manual MFA input
 			content := fmt.Sprintf("%s\n\n%s\n\n%s\n%s\n\n%s",
 				accentStyle.Render("🔐 MFA Authentication Required"),
 				infoStyle.Render("Enter your 6-digit MFA code"),
 				u.mfaInput.View(),
-				accentStyle.Render("Press Enter to continue • Ctrl+C to cancel"),
+				lightGrayStyle.Render("Press Enter to continue • Ctrl+C to cancel"),
 				errorStyle.Render(u.step))
 			box := lipgloss.NewStyle().
-				Padding(0, 1).
+				Padding(1, 2).
 				Width(min(vw-4, 80))
 			return box.Render(content)
 		}
@@ -240,15 +244,15 @@ func (u *UIManager) View() string {
 	case StepProcessing:
 		stepMessage := u.step
 		if stepMessage == "" {
-			stepMessage = "Processing authentication..."
+			stepMessage = "authenticating..."
 		}
 		content := fmt.Sprintf("%s %s",
-			pulseStyle.Render("📦"),
+			u.spinner.View(),
 			infoStyle.Render(stepMessage))
 		box := lipgloss.NewStyle().
-			Padding(0, 1).
+			Padding(1, 2).
 			Width(min(vw-4, 80))
-		return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
+		return box.Render(content)
 
 	case StepDone:
 		if u.err != nil {
@@ -256,9 +260,9 @@ func (u *UIManager) View() string {
 				errorStyle.Render("✗"),
 				errorStyle.Render(u.err.Error()))
 			box := lipgloss.NewStyle().
-				Padding(0, 1).
+				Padding(1, 2).
 				Width(min(vw-4, 80))
-			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
+			return box.Render(content)
 		}
 		if u.success {
 			// Format ECR status
@@ -275,9 +279,9 @@ func (u *UIManager) View() string {
 				infoStyle.Render(u.profile),
 				ecrColor.Render(ecrStatus))
 			box := lipgloss.NewStyle().
-				Padding(0, 1).
+				Padding(1, 2).
 				Width(min(vw-4, 80))
-			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
+			return box.Render(content)
 		}
 
 	case StepQuit:
@@ -297,66 +301,26 @@ func (u *UIManager) View() string {
 				infoStyle.Render(u.profile),
 				ecrColor.Render(ecrStatus))
 			box := lipgloss.NewStyle().
-				Padding(0, 1).
+				Padding(1, 2).
 				Width(min(vw-4, 80))
-			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
+			return box.Render(content)
 		} else if u.err != nil {
 			content := fmt.Sprintf("%s %s",
 				errorStyle.Render("✗"),
 				errorStyle.Render(u.err.Error()))
 			box := lipgloss.NewStyle().
-				Padding(0, 1).
+				Padding(1, 2).
 				Width(min(vw-4, 80))
-			return fmt.Sprintf("%s\n\n%s", header, box.Render(content))
+			return box.Render(content)
 		}
 		// Fallback to empty string if no final state
 		return ""
 	}
 
 	box := lipgloss.NewStyle().
-		Padding(0, 1).
+		Padding(1, 2).
 		Width(min(vw-4, 80))
 	return box.Render("Unknown state")
-}
-
-// FinalOutput returns the final line that should be printed after the TUI exits
-// to preserve the success or error message on screen.
-func (u *UIManager) FinalOutput() string {
-	vw := u.width
-	if vw == 0 {
-		vw = 80
-	}
-
-	if u.success {
-		ecrStatus := "no"
-		ecrColor := errorStyle
-		if u.sessionResult.ECRAuth {
-			ecrStatus = "yes"
-			ecrColor = infoStyle
-		}
-
-		successLine := successStyle.Render("✓ Success")
-		content := fmt.Sprintf("%s - account [%s] - ecr [%s]",
-			successLine,
-			infoStyle.Render(u.profile),
-			ecrColor.Render(ecrStatus))
-		box := lipgloss.NewStyle().
-			Padding(0, 1).
-			Width(min(vw-4, 80))
-		return fmt.Sprint(box.Render(content))
-	}
-
-	if u.err != nil {
-		content := fmt.Sprintf("%s %s",
-			errorStyle.Render("✗"),
-			errorStyle.Render(u.err.Error()))
-		box := lipgloss.NewStyle().
-			Padding(0, 1).
-			Width(min(vw-4, 80))
-		return fmt.Sprint(box.Render(content))
-	}
-
-	return ""
 }
 
 // initCurrentStep initializes the current step
@@ -401,7 +365,7 @@ func (u *UIManager) initCurrentStep() tea.Cmd {
 		return nil
 
 	case StepProcessing:
-		return u.processAuthentication()
+		return tea.Batch(u.spinner.Tick, u.processAuthentication())
 
 	default:
 		return nil

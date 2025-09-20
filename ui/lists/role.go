@@ -2,6 +2,7 @@ package lists
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,12 +13,13 @@ import (
 
 // RoleItem represents an item in the role selection list
 type RoleItem struct {
-	title string
-	role  string
+	title       string
+	role        string // the actual ARN to assume
+	description string // the description to render in the list
 }
 
 func (i RoleItem) Title() string       { return i.title }
-func (i RoleItem) Description() string { return i.role }
+func (i RoleItem) Description() string { return i.description }
 func (i RoleItem) FilterValue() string { return i.title }
 
 // RoleListModel handles the role selection UI
@@ -34,8 +36,9 @@ func NewRoleListModel(awsService *core.AWSService, profile string) RoleListModel
 	// Create items list with "None" option first
 	items := []list.Item{
 		RoleItem{
-			title: "None (continue as current user)",
-			role:  "",
+			title:       profile,
+			role:        "",
+			description: fmt.Sprintf("Continue as the current user: [%s]", profile),
 		},
 	}
 
@@ -43,15 +46,18 @@ func NewRoleListModel(awsService *core.AWSService, profile string) RoleListModel
 	for _, role := range roles {
 		// Get the profile name that has this assumable_role_id
 		profileName := awsService.GetAssumedProfileName(role)
+		roleParts := strings.Split(role, ":")
+		formattedRole := roleParts[len(roleParts)-1]
 
 		items = append(items, RoleItem{
-			title: profileName, // Display profile name
-			role:  role,        // Store the full ARN
+			title:       profileName,
+			description: fmt.Sprintf("Assume: [%s]", formattedRole),
+			role:        role,
 		})
 	}
 
 	l := list.New(items, list.NewDefaultDelegate(), 80, 20)
-	l.Title = "Select Role to Assume"
+	l.Title = "🔐 Select Role to Assume"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.Styles.Title = lipgloss.NewStyle().MarginLeft(2).Bold(true)
@@ -99,38 +105,11 @@ func (m RoleListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the role selection UI
 func (m RoleListModel) View() string {
-	// Define styles locally since we can't import from parent package
-	const (
-		Pink  = "#E03189" // JJ Brand Pink
-		Green = "#BCE921" // JJ Brand Green
-	)
-
-	brandStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(Pink)).
-		Bold(true)
-
-	accentStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(Green)).
-		Italic(true)
-
-	infoStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(Green))
-
-	header := brandStyle.Render("JJ") + " " + accentStyle.Render("AWS Login")
-
-	content := fmt.Sprintf("%s\n\n%s\n\n%s",
-		accentStyle.Render("🔐 Role Selection"),
-		infoStyle.Render("Select a role to assume or continue as the current user"),
-		m.list.View(),
-	)
-
 	box := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(Green)).
 		Padding(1, 2).
 		Width(60)
 
-	return fmt.Sprintf("\n%s\n\n%s\n\n", header, box.Render(content))
+	return box.Render(m.list.View())
 }
 
 // GetChoice returns the selected role (empty string for "None")

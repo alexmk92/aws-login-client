@@ -6,19 +6,18 @@ import (
 )
 
 const (
-	Pink   = "#E03189" // JJ Brand Pink
-	Orange = "#ff6b35" // JJ Brand Orange
-	Green  = "#BCE921" // JJ Brand Pink
-	Red    = "#e74c3c"
+	Pink      = "#E03189" // JJ Brand Pink
+	Orange    = "#ff6b35" // JJ Brand Orange
+	Green     = "#BCE921" // JJ Brand Pink
+	Red       = "#e74c3c"
+	LightGray = "#999999"
 )
 
 var (
 	titleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(Orange)).
 			Bold(true).
-			Padding(0, 1).
-			BorderBottom(true).
-			BorderForeground(lipgloss.Color(Pink))
+			MarginLeft(2)
 
 	successStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(Pink)).
@@ -40,6 +39,10 @@ var (
 
 	accentStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(Green)).
+			Italic(true)
+
+	lightGrayStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(LightGray)).
 			Italic(true)
 )
 
