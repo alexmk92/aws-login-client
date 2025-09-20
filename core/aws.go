@@ -202,11 +202,21 @@ func (s *AWSService) LoginToECR() error {
 		return fmt.Errorf("failed to get ECR login password: %w", err)
 	}
 
+	// Ensure we have an account ID, AccountID can be optional in the credentials file, but the
+	// user is required to specify the full RoleARN for the assumable role if we're using that instead.
+	accountID := credentials.AccountID
+	if accountID == "" {
+		accountID = credentials.AssumableRoleID
+		// Role ARN = arn:aws:iam::ACCOUNT:role/ROLE_NAME
+		// we want to extract the ACCOUNT ID
+		accountID = strings.Split(accountID, ":")[4]
+	}
+
 	// Docker login
 	dockerCmd := exec.Command("docker", "login",
 		"--username", "AWS",
 		"--password-stdin",
-		fmt.Sprintf("%s.dkr.ecr.eu-west-2.amazonaws.com", credentials.AccountID))
+		fmt.Sprintf("%s.dkr.ecr.eu-west-2.amazonaws.com", accountID))
 	dockerCmd.Stdin = strings.NewReader(string(password))
 
 	if err := dockerCmd.Run(); err != nil {
