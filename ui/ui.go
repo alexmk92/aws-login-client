@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -44,6 +45,13 @@ type UIManager struct {
 	success       bool
 	step          string
 
+	// Processing messages
+	processingMessages  []string
+	currentMessageIndex int
+
+	// Exit message
+	exitMessage string
+
 	// Viewport dimensions
 	width  int
 	height int
@@ -71,20 +79,59 @@ type stepCompleteMsg struct {
 type errorMsg error
 type doneMsg bool
 type quitMsg struct{}
+type processingTickMsg struct{}
 
 func Start(awsService *core.AWSService, authDriverName auth_drivers.AuthDriverName) *UIManager {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	ui := &UIManager{
-		awsService:     awsService,
-		authDriverName: authDriverName,
-		sessionResult:  &coreTypes.AuthFlowResult{},
-		mfaInput:       NewMFAInput(),
-		spinner:        s,
-		currentStep:    StepProfileSelection,
+	processingMessages := []string{
+		"igniting the AWS bonfire (someone call the cloud fire brigade)...",
+		"herding EC2 cats (they're on fire)...",
+		"deploying chaos monkeys into production...",
+		"consulting the cloud shaman (he's panicking)...",
+		"rebooting the AWS flux capacitor...",
+		"duct-taping the S3 buckets (they're leaking credentials)...",
+		"calling AWS support (they're on lunch)...",
+		"spinning up infinite Lambda loops (oops)...",
+		"offering burnt offerings to the IAM gods...",
+		"patching the cloud with chewing gum...",
+		"replacing the batteries in the cloud smoke detector...",
+		"extinguishing a DynamoDB dumpster fire...",
+		"debugging with a rubber duck (it's melting)...",
+		"restarting the cloud (please hold)...",
+		"unplugging and replugging the AWS region...",
+		"rolling back the rollback of the rollback...",
+		"releasing the Kraken (in us-east-1)...",
+		"finding the root cause (it's always DNS)...",
+		"deploying to prod on a Friday (what could go wrong)...",
+		"watching the logs catch fire...",
+		"calling the cloud janitor (he's on vacation)...",
+		"retraining the AI overlords (they're unionizing)...",
+		"replacing the cloud hamster (it escaped)...",
+		"recalibrating the AWS ouija board...",
+		"initiating the all-hands-on-deck protocol...",
+		"rebooting the cloud coffee machine...",
+		"fighting off rogue Lambda gremlins...",
+		"rebuilding the cloud from memory (uh oh)...",
+		"releasing the emergency rubber chickens...",
+		"declaring a code red (and orange, and pink)...",
 	}
+
+	ui := &UIManager{
+		awsService:          awsService,
+		authDriverName:      authDriverName,
+		sessionResult:       &coreTypes.AuthFlowResult{},
+		mfaInput:            NewMFAInput(),
+		spinner:             s,
+		processingMessages:  processingMessages,
+		currentMessageIndex: 0,
+		currentStep:         StepProfileSelection,
+	}
+
+	// Set a random message from our dictionary of processing messages
+	ui.setProcessingMessage()
 
 	return ui
 }
@@ -150,6 +197,12 @@ func (u *UIManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		u.spinner, cmd = u.spinner.Update(msg)
 		return u, cmd
+
+	case processingTickMsg:
+		u.setProcessingMessage()
+		return u, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+			return processingTickMsg{}
+		})
 
 	case stepCompleteMsg:
 		return u.handleStepComplete(msg)
@@ -223,46 +276,34 @@ func (u *UIManager) View() string {
 				accentStyle.Render("🔐 MFA Authentication"),
 				infoStyle.Render(fmt.Sprintf("Fetching your MFA code from %s...", u.authDriverName.String())),
 				pulseStyle.Render("⏳ Please wait"))
-			box := lipgloss.NewStyle().
-				Padding(1, 2).
-				Width(min(vw-4, 80))
-			return box.Render(content)
+			return u.renderTextWithTitle("🔐 JJ AWS Login", content)
 		} else {
 			// Show manual MFA input
-			content := fmt.Sprintf("%s\n\n%s\n\n%s\n%s\n\n%s",
-				accentStyle.Render("🔐 MFA Authentication Required"),
+			content := fmt.Sprintf("%s\n\n%s\n\n%s\n\n%s",
 				infoStyle.Render("Enter your 6-digit MFA code"),
 				u.mfaInput.View(),
 				lightGrayStyle.Render("Press Enter to continue • Ctrl+C to cancel"),
 				errorStyle.Render(u.step))
-			box := lipgloss.NewStyle().
-				Padding(1, 2).
-				Width(min(vw-4, 80))
-			return box.Render(content)
+			return u.renderTextWithTitle("🔐 MFA Autentication Required", content)
 		}
 
 	case StepProcessing:
 		stepMessage := u.step
 		if stepMessage == "" {
-			stepMessage = "authenticating..."
+			stepMessage = u.processingMessages[u.currentMessageIndex]
 		}
 		content := fmt.Sprintf("%s %s",
 			u.spinner.View(),
-			infoStyle.Render(stepMessage))
-		box := lipgloss.NewStyle().
-			Padding(1, 2).
-			Width(min(vw-4, 80))
-		return box.Render(content)
+			lightGrayStyle.Render(stepMessage))
+		return u.renderTextWithTitle("🔐 JJ AWS Login", content)
 
 	case StepDone:
 		if u.err != nil {
 			content := fmt.Sprintf("%s %s",
 				errorStyle.Render("✗"),
-				errorStyle.Render(u.err.Error()))
-			box := lipgloss.NewStyle().
-				Padding(1, 2).
-				Width(min(vw-4, 80))
-			return box.Render(content)
+				lightGrayStyle.Render(u.err.Error()))
+
+			u.exitMessage = content
 		}
 		if u.success {
 			// Format ECR status
@@ -270,50 +311,20 @@ func (u *UIManager) View() string {
 			ecrColor := errorStyle
 			if u.sessionResult.ECRAuth {
 				ecrStatus = "yes"
-				ecrColor = infoStyle
+				ecrColor = accentStyle
 			}
 
 			successLine := successStyle.Render("✓ Success")
 			content := fmt.Sprintf("%s - account [%s] - ecr [%s]",
 				successLine,
-				infoStyle.Render(u.profile),
+				accentStyle.Render(u.profile),
 				ecrColor.Render(ecrStatus))
-			box := lipgloss.NewStyle().
-				Padding(1, 2).
-				Width(min(vw-4, 80))
-			return box.Render(content)
+
+			u.exitMessage = content
 		}
 
+		return ""
 	case StepQuit:
-		// Return the last rendered state to preserve the display
-		if u.success {
-			// Format ECR status
-			ecrStatus := "no"
-			ecrColor := errorStyle
-			if u.sessionResult.ECRAuth {
-				ecrStatus = "yes"
-				ecrColor = infoStyle
-			}
-
-			successLine := successStyle.Render("✓ Success")
-			content := fmt.Sprintf("%s - account [%s] - ecr [%s]",
-				successLine,
-				infoStyle.Render(u.profile),
-				ecrColor.Render(ecrStatus))
-			box := lipgloss.NewStyle().
-				Padding(1, 2).
-				Width(min(vw-4, 80))
-			return box.Render(content)
-		} else if u.err != nil {
-			content := fmt.Sprintf("%s %s",
-				errorStyle.Render("✗"),
-				errorStyle.Render(u.err.Error()))
-			box := lipgloss.NewStyle().
-				Padding(1, 2).
-				Width(min(vw-4, 80))
-			return box.Render(content)
-		}
-		// Fallback to empty string if no final state
 		return ""
 	}
 
@@ -321,6 +332,41 @@ func (u *UIManager) View() string {
 		Padding(1, 2).
 		Width(min(vw-4, 80))
 	return box.Render("Unknown state")
+}
+
+// renderTextWithTitle renders text content with a title that matches the list styling
+func (u *UIManager) renderTextWithTitle(title, content string) string {
+	vw := u.width
+	if vw == 0 {
+		vw = 80
+	}
+
+	// Use the same title styling as the lists
+	titleStyle := lipgloss.NewStyle().MarginLeft(2).Padding(1, 2, 0, 2).Bold(true)
+	styledTitle := titleStyle.Render(title)
+
+	// Create content box with consistent padding
+	contentBox := lipgloss.NewStyle().
+		Padding(0, 2).
+		Width(min(vw-4, 80))
+
+	styledContent := contentBox.Render(content)
+
+	// Join title and content with proper spacing (mimicking list layout)
+	return lipgloss.JoinVertical(lipgloss.Left, styledTitle, "", styledContent)
+}
+
+func (u *UIManager) setProcessingMessage() {
+	// Pick a random message
+	if len(u.processingMessages) > 0 {
+		u.currentMessageIndex = rand.Intn(len(u.processingMessages))
+	}
+}
+
+// FinalOutput returns the final line that should be printed after the TUI exits
+// to preserve the success or error message on screen.
+func (u *UIManager) FinalOutput() string {
+	return u.renderTextWithTitle("🔐 JJ AWS Login", u.exitMessage)
 }
 
 // initCurrentStep initializes the current step
@@ -356,16 +402,19 @@ func (u *UIManager) initCurrentStep() tea.Cmd {
 
 	case StepMFAInput:
 		// Check if we can get MFA automatically
-		// fmt.Printf("DEBUG: StepMFAInput init, authDriverName: %v\n", u.authDriverName)
 		if u.authDriverName != auth_drivers.AuthDriverManual {
-			// fmt.Printf("DEBUG: Calling tryAutoMFA\n")
 			return u.tryAutoMFA()
 		}
-		// fmt.Printf("DEBUG: Manual MFA input required\n")
 		return nil
 
 	case StepProcessing:
-		return tea.Batch(u.spinner.Tick, u.processAuthentication())
+		return tea.Batch(
+			u.spinner.Tick,
+			u.processAuthentication(),
+			tea.Tick(time.Second*3, func(t time.Time) tea.Msg {
+				return processingTickMsg{}
+			}),
+		)
 
 	default:
 		return nil

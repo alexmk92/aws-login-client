@@ -11,6 +11,7 @@ const (
 	Green     = "#BCE921" // JJ Brand Pink
 	Red       = "#e74c3c"
 	LightGray = "#999999"
+	White     = "#ffffff"
 )
 
 var (
@@ -28,7 +29,7 @@ var (
 			Bold(true)
 
 	infoStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(Green))
+			Foreground(lipgloss.Color(White))
 
 	pulseStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(Orange))
@@ -54,7 +55,7 @@ func NewMFAInput() textinput.Model {
 	ti.Width = 20
 	ti.Prompt = "MFA Code: "
 	ti.PromptStyle = brandStyle
-	ti.TextStyle = infoStyle
+	ti.TextStyle = accentStyle
 	ti.PlaceholderStyle = accentStyle.Copy().Faint(true)
 	return ti
 }
