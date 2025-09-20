@@ -364,8 +364,13 @@ func (u *UIManager) initCurrentStep() tea.Cmd {
 
 	switch u.currentStep {
 	case StepProfileSelection:
+		profiles := u.awsService.GetValidProfiles()
 		profileModel := lists.NewProfileListModel(u.awsService)
 		u.profileModel = &profileModel
+		if len(profiles) == 1 {
+			u.profile = profiles[0]
+			return func() tea.Msg { return stepCompleteMsg{step: StepProfileSelection, data: u.profile} }
+		}
 		return nil
 
 	case StepDriverSelection:
@@ -411,10 +416,13 @@ func (u *UIManager) handleCurrentStep(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if u.profileModel == nil {
 			return u, nil
 		}
+
+		profiles := u.awsService.GetValidProfiles()
+
 		updatedModel, cmd := u.profileModel.Update(msg)
 		*u.profileModel = updatedModel.(lists.ProfileListModel)
 
-		if u.profileModel.IsSelected() {
+		if u.profileModel.IsSelected() || len(profiles) == 1 {
 			u.profile = u.profileModel.GetChoice().(string)
 			return u, func() tea.Msg {
 				return stepCompleteMsg{step: StepProfileSelection, data: u.profile}

@@ -130,12 +130,19 @@ func (cr *CredentialReader) LoadCredentialsFile() error {
 	return nil
 }
 
-// GetValidProfiles returns a list of all valid profile names
+// Returns a list of all profile names that we can attempt to assume a role
+// for.  If we only define the vault key or role arn, then we don't want
+// to include is as an authable entity.  It could however still be consumed
+// by another profile (such as prd acting as int via an assumable role)
 func (cr *CredentialReader) GetValidProfiles() []string {
 	profiles := make([]string, 0, len(cr.credentials))
-	for profile := range cr.credentials {
-		profiles = append(profiles, profile)
+
+	for profile, credential := range cr.credentials {
+		if credential.AccessKey != "" && credential.AccessSecret != "" && credential.MfaSerial != "" {
+			profiles = append(profiles, profile)
+		}
 	}
+
 	return profiles
 }
 

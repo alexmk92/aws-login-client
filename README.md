@@ -40,6 +40,25 @@ assumable_role_id = arn:aws:iam::ACCOUNT:role/ROLE_NAME
 vault_key = AWS MFA profile-name
 ```
 
+At a minimum, you must ensure that a profile is configured with `aws_access_key_id`, `aws_secret_access_key` and `mfa_serial` in order for it to appear as a selectable profile in the list.
+
+You can choose to define an entity which only specifies an `assumable_role_id`, allowing your privileged account to try and act through it, i.e.
+
+```ini
+[profile-name]
+aws_access_key_id = YOUR_ACCESS_KEY
+aws_secret_access_key = YOUR_SECRET_KEY
+mfa_serial = arn:aws:iam::ACCOUNT:mfa/USERNAME
+aws_account_id = 000000000000
+assumable_role_id = arn:aws:iam::ACCOUNT:role/ROLE_NAME
+vault_key = AWS MFA profile-name
+
+[int]
+assumable_role_id = arn:aws:iam:ACCOUNT:role/ROLE_NAME
+```
+
+In this setup, the only option from the profile selection prompt would be `prd` and when selecting `prd` it would ask you if you wanted to assume_role as `int` or continue as `prd`.
+
 **Optional fields:**
 - `vault_key`: 1Password vault item name for automatic MFA retrieval
 - `assumable_role_id`: IAM role ARN for cross-account access
